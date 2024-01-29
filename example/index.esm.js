@@ -116,6 +116,7 @@ dm.set("dialogA", {
 dm.set("dialogB", {
   onShow() {
     console.log("dialogB onShow");
+    dm.hide();
   },
   async onHide(next) {
     console.log("dialogB onHide");
