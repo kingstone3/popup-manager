@@ -1,0 +1,41 @@
+{
+  "name": "dialog-manager",
+  "version": "0.0.1",
+  "description": "A dialog management tool",
+  "author": "wanglei",
+  "keywords": [
+    "dialog-manager"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.cjs.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "rollup --config rollup.config.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kingstone3/dialog-manager.git"
+  },
+  "homepage": "https://github.com/kingstone3/dialog-manager#readme",
+  "bugs": {
+    "url": "https://github.com/kingstone3/dialog-manager/issues"
+  },
+  "devDependencies": {
+    "@rollup/plugin-eslint": "^9.0.5",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "esbuild": "^0.20.0",
+    "prettier": "^3.2.4",
+    "rollup": "^4.9.6",
+    "rollup-plugin-dts": "^6.1.0",
+    "rollup-plugin-esbuild": "^6.1.1",
+    "typescript": "^5.3.3"
+  }
+}

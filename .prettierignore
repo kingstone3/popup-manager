@@ -1,0 +1,8 @@
+build/
+public/
+tests/
+coverage/
+**/*-min.js
+**/*.min.js
+package-lock.json
+yarn.lock
