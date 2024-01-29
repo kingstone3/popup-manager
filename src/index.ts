@@ -3,6 +3,7 @@ interface Dialog {
   targetLane: number;
   lane: Dialog[];
   index: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
   forceShow: boolean;
   canResume: boolean;
@@ -13,6 +14,7 @@ interface Dialog {
 type OneDialog = Pick<Dialog, 'name' | 'data' | 'onHide' | 'cancel'>;
 
 interface OnShow {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (data: any, cancel: () => void): Dialog['onHide'] | void;
 }
 
@@ -197,7 +199,7 @@ export default class DialogManager extends Map<
     if (this.onlyOne) {
       this.next({
         name,
-        data: { ...data },
+        data,
         onHide: dialog.onHide,
         cancel: () => {
           this.hide();
@@ -225,7 +227,7 @@ export default class DialogManager extends Map<
 
     const instance: Dialog = {
       name,
-      data: { ...data },
+      data,
       targetLane,
       lane,
       index: index ?? 0,
