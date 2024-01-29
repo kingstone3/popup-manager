@@ -17,7 +17,8 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "rollup --config rollup.config.js"
+    "build": "rollup --config rollup.config.js",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -28,14 +29,19 @@
     "url": "https://github.com/kingstone3/dialog-manager/issues"
   },
   "devDependencies": {
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "@babel/preset-typescript": "^7.23.3",
     "@rollup/plugin-eslint": "^9.0.5",
     "@rollup/plugin-terser": "^0.4.4",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "babel-jest": "^29.7.0",
     "esbuild": "^0.20.0",
     "prettier": "^3.2.4",
     "rollup": "^4.9.6",
     "rollup-plugin-dts": "^6.1.0",
     "rollup-plugin-esbuild": "^6.1.1",
+    "ts-jest": "^29.1.2",
     "typescript": "^5.3.3"
   }
 }
