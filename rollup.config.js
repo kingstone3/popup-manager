@@ -1,4 +1,3 @@
-import path from 'path';
 import eslint from '@rollup/plugin-eslint';
 import terser from '@rollup/plugin-terser';
 import esbuild from 'rollup-plugin-esbuild';
@@ -28,5 +27,13 @@ export default [
       file: 'dist/index.d.ts',
     },
     plugins: [dts()],
+  },
+  {
+    input: './example/index.ts',
+    output: {
+      format: 'esm',
+      file: 'example/index.esm.js',
+    },
+    plugins: [esbuild(), eslint()],
   },
 ];
