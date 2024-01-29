@@ -176,20 +176,17 @@ export default class DialogManager extends Map<
   show(
     name: Dialog['name'],
     data?: Dialog['data'],
-    {
-      targetLane,
-      forceShow,
-      canResume,
-      unshift,
-      index,
-    }: {
+    config?: {
       targetLane?: number;
       forceShow?: boolean;
       canResume?: boolean;
       unshift?: boolean;
       index?: number;
-    } = {},
+    },
   ) {
+    let targetLane = config?.targetLane;
+    const { forceShow, canResume, unshift, index } = config ?? {};
+
     const dialog = this.get(name);
 
     if (!dialog) {
