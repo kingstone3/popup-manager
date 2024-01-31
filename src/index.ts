@@ -1,3 +1,9 @@
+interface Config {
+  laneCount?: number;
+  onlyOne?: boolean;
+  limit?: number;
+}
+
 interface Dialog {
   name: string;
   targetLane: number;
@@ -18,19 +24,16 @@ interface OnShow {
   (data: any, cancel: () => void): Dialog['onHide'] | void;
 }
 
-function isMultiDialogMode(
-  d: DialogManager['currentDialog'],
-  onlyOne: boolean,
-): d is Dialog {
-  return !onlyOne;
-}
-
 function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
   return () => {
     fn();
 
     probe.called = true;
   };
+}
+
+function isOneDialog(d: Dialog | OneDialog, onlyOne: boolean): d is OneDialog {
+  return onlyOne;
 }
 
 export default class DialogManager extends Map<
@@ -40,14 +43,10 @@ export default class DialogManager extends Map<
     onHide: Dialog['onHide'];
   }
 > {
-  constructor(config?: { laneCount?: number; onlyOne?: boolean }) {
+  constructor(config?: Config) {
     super();
 
-    this.laneCount = config?.laneCount ?? 1;
-
-    this.onlyOne = config?.onlyOne ?? false;
-
-    this.resetLanes();
+    this.reset(config);
   }
 
   private laneCount: number;
@@ -56,19 +55,18 @@ export default class DialogManager extends Map<
 
   private onlyOne = false;
 
-  private currentDialog?: Dialog | OneDialog;
+  private limit: number;
 
-  private resetLanes() {
-    this.lanes = Array(this.laneCount).fill([]);
-  }
+  private oneDialog: OneDialog;
+  private currentDialogs?: Dialog[] = [];
 
-  private async next(oneDialog?: OneDialog) {
-    if (!isMultiDialogMode(this.currentDialog, this.onlyOne)) {
+  private async next() {
+    if (currentDialogsIsOnlyOne(this.currentDialogs, this.onlyOne)) {
       if (oneDialog) {
         const nDialog = this.get(oneDialog.name);
 
         if (nDialog) {
-          this.currentDialog = oneDialog;
+          this.currentDialogs = oneDialog;
 
           const onHide = nDialog.onShow(oneDialog.data, oneDialog.cancel);
 
@@ -184,9 +182,6 @@ export default class DialogManager extends Map<
       index?: number;
     },
   ) {
-    let targetLane = config?.targetLane;
-    const { forceShow, canResume, unshift, index } = config ?? {};
-
     const dialog = this.get(name);
 
     if (!dialog) {
@@ -194,14 +189,16 @@ export default class DialogManager extends Map<
     }
 
     if (this.onlyOne) {
-      this.next({
+      this.oneDialog = {
         name,
         data,
         onHide: dialog.onHide,
         cancel: () => {
           this.hide();
         },
-      });
+      };
+
+      this.next();
 
       return;
     }
@@ -209,6 +206,9 @@ export default class DialogManager extends Map<
     if (!this.lanes) {
       throw new Error('lanes not initialized');
     }
+
+    const { forceShow, canResume, unshift, index } = config ?? {};
+    let targetLane = config?.targetLane;
 
     if (this.lanes.length === 1) {
       targetLane = 0;
@@ -232,15 +232,7 @@ export default class DialogManager extends Map<
       canResume: canResume ?? true,
       onHide: dialog.onHide,
       cancel: () => {
-        if (this.currentDialog === instance) {
-          this.hide();
-        } else {
-          const index = instance.lane.indexOf(instance);
-
-          if (index >= 0) {
-            instance.lane.splice(index, 1);
-          }
-        }
+        this.hide(instance);
       },
     };
 
@@ -257,29 +249,65 @@ export default class DialogManager extends Map<
     return instance.cancel;
   }
 
-  async hide() {
-    const currentDialog = this.currentDialog;
+  async hide(instance?: Dialog | OneDialog) {
+    instance = instance ?? this.oneDialog ?? this.currentDialogs.shift();
 
-    if (currentDialog) {
-      this.currentDialog = undefined;
+    if (instance) {
+      if (isOneDialog(instance, this.onlyOne)) {
+        if (this.oneDialog === instance) {
+          this.oneDialog = undefined;
 
-      const probe = {
-        called: false,
-      };
+          const probe = {
+            called: false,
+          };
 
-      await currentDialog.onHide(callCheckWrapper(() => this.next(), probe));
+          await instance.onHide(callCheckWrapper(() => this.next(), probe));
 
-      if (!probe.called) {
-        this.next();
+          if (!probe.called) {
+            this.next();
+          }
+        }
+      } else {
+        const currentInstance = instance as Dialog;
+
+        const index = this.currentDialogs.indexOf(currentInstance);
+
+        if (index >= 0) {
+          this.currentDialogs.splice(index, 1);
+
+          const probe = {
+            called: false,
+          };
+
+          await currentInstance.onHide(
+            callCheckWrapper(() => this.next(), probe),
+          );
+
+          if (!probe.called) {
+            this.next();
+          }
+        } else {
+          const index = currentInstance.lane.indexOf(instance);
+
+          if (index >= 0) {
+            currentInstance.lane.splice(index, 1);
+          }
+        }
       }
     }
   }
 
-  reset() {
+  reset(config?: Config) {
     this.clear();
 
-    this.resetLanes();
+    this.laneCount = config?.laneCount ?? this.laneCount ?? 1;
+    this.lanes = Array(this.laneCount).fill([]);
 
-    this.currentDialog = undefined;
+    this.onlyOne = config?.onlyOne ?? this.onlyOne ?? false;
+
+    this.oneDialog = undefined;
+    this.currentDialogs = [];
+
+    this.limit = config?.limit ?? this.limit ?? 1;
   }
 }
