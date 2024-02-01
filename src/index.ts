@@ -1,6 +1,6 @@
 interface Config {
   laneCount?: number;
-  onlyOne?: boolean;
+  noCache?: boolean;
   limit?: number;
 }
 
@@ -12,12 +12,12 @@ interface Popup {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
   forceShow: boolean;
-  canResume: boolean;
+  resumable: boolean;
   onHide: (next: () => void) => Promise<void>;
   cancel: () => void;
 }
 
-type OnePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
+type NoCachePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
 
 interface OnShow {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,8 +32,11 @@ function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
   };
 }
 
-function isOnePopup(d: Popup | OnePopup, onlyOne: boolean): d is OnePopup {
-  return onlyOne;
+function isNoCache(
+  d: Popup | NoCachePopup,
+  noCache: boolean,
+): d is NoCachePopup {
+  return noCache;
 }
 
 export default class PopupManager extends Map<
@@ -53,25 +56,25 @@ export default class PopupManager extends Map<
 
   private lanes: Popup[][] | undefined;
 
-  private onlyOne = false;
+  private noCache = false;
 
   private limit: number;
 
-  private onePopup: OnePopup;
-  private currentPopups?: Popup[] = [];
+  private noCachePopup: NoCachePopup;
+  private currentPopups: Popup[] = [];
 
   private async next() {
-    if (isOnePopup(this.onePopup, this.onlyOne)) {
-      const onePopup = this.onePopup;
+    if (this.noCache) {
+      const noCachePopup = this.noCachePopup;
 
-      if (onePopup) {
-        const nPopup = this.get(onePopup.name);
+      if (noCachePopup) {
+        const nPopup = this.get(noCachePopup.name);
 
         if (nPopup) {
-          const onHide = nPopup.onShow(onePopup.data, onePopup.cancel);
+          const onHide = nPopup.onShow(noCachePopup.data, noCachePopup.cancel);
 
           if (onHide) {
-            onePopup.onHide = onHide;
+            noCachePopup.onHide = onHide;
           }
         }
 
@@ -118,7 +121,7 @@ export default class PopupManager extends Map<
               const nPopup = this.get(nextPopup.name);
 
               if (nPopup) {
-                if (currentPopup.canResume) {
+                if (currentPopup.resumable) {
                   currentPopup.lane.unshift(currentPopup);
                 }
 
@@ -179,7 +182,7 @@ export default class PopupManager extends Map<
     config?: {
       targetLane?: number;
       forceShow?: boolean;
-      canResume?: boolean;
+      resumable?: boolean;
       unshift?: boolean;
       index?: number;
     },
@@ -190,8 +193,8 @@ export default class PopupManager extends Map<
       throw new Error(`${name} not registered`);
     }
 
-    if (this.onlyOne) {
-      this.onePopup = {
+    if (this.noCache) {
+      this.noCachePopup = {
         name,
         data,
         onHide: popup.onHide,
@@ -209,7 +212,7 @@ export default class PopupManager extends Map<
       throw new Error('lanes not initialized');
     }
 
-    const { forceShow, canResume, unshift, index } = config ?? {};
+    const { forceShow, resumable, unshift, index } = config ?? {};
     let targetLane = config?.targetLane;
 
     if (this.lanes.length === 1) {
@@ -231,7 +234,7 @@ export default class PopupManager extends Map<
       lane,
       index: index ?? 0,
       forceShow: forceShow ?? false,
-      canResume: canResume ?? true,
+      resumable: resumable ?? true,
       onHide: popup.onHide,
       cancel: () => {
         this.hide(instance);
@@ -251,31 +254,14 @@ export default class PopupManager extends Map<
     return instance.cancel;
   }
 
-  async hide(instance?: Popup | OnePopup) {
-    instance = instance ?? this.onePopup ?? this.currentPopups.at(-1);
+  async hide(instance?: Popup | NoCachePopup) {
+    const currentInstance =
+      instance ?? this.noCachePopup ?? this.currentPopups.at(0);
 
-    if (instance) {
-      if (isOnePopup(instance, this.onlyOne)) {
-        if (this.onePopup === instance) {
-          this.onePopup = undefined;
-
-          const probe = {
-            called: false,
-          };
-
-          await instance.onHide(callCheckWrapper(() => this.next(), probe));
-
-          if (!probe.called) {
-            this.next();
-          }
-        }
-      } else {
-        const currentInstance = instance as Popup;
-
-        const index = this.currentPopups.indexOf(currentInstance);
-
-        if (index >= 0) {
-          this.currentPopups.splice(index, 1);
+    if (currentInstance) {
+      if (isNoCache(currentInstance, this.noCache)) {
+        if (this.noCachePopup === currentInstance) {
+          this.noCachePopup = undefined;
 
           const probe = {
             called: false,
@@ -288,11 +274,31 @@ export default class PopupManager extends Map<
           if (!probe.called) {
             this.next();
           }
+        }
+      } else {
+        const _currentInstance = currentInstance as Popup;
+
+        const index = this.currentPopups.indexOf(_currentInstance);
+
+        if (index >= 0) {
+          this.currentPopups.splice(index, 1);
+
+          const probe = {
+            called: false,
+          };
+
+          await _currentInstance.onHide(
+            callCheckWrapper(() => this.next(), probe),
+          );
+
+          if (!probe.called) {
+            this.next();
+          }
         } else {
-          const index = currentInstance.lane.indexOf(instance);
+          const index = _currentInstance.lane.indexOf(_currentInstance);
 
           if (index >= 0) {
-            currentInstance.lane.splice(index, 1);
+            _currentInstance.lane.splice(index, 1);
           }
         }
       }
@@ -305,9 +311,9 @@ export default class PopupManager extends Map<
     this.laneCount = config?.laneCount ?? this.laneCount ?? 1;
     this.lanes = Array(this.laneCount).fill([]);
 
-    this.onlyOne = config?.onlyOne ?? this.onlyOne ?? false;
+    this.noCache = config?.noCache ?? this.noCache ?? false;
 
-    this.onePopup = undefined;
+    this.noCachePopup = undefined;
     this.currentPopups = [];
 
     this.limit = config?.limit ?? this.limit ?? 1;
