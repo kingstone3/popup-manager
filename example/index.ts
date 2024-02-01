@@ -1,6 +1,8 @@
 import PopupManager from '../dist/index.esm';
 
-const dm = new PopupManager();
+const dm = new PopupManager({
+  limit: 2
+});
 
 dm.set('popupA', {
   onShow() {

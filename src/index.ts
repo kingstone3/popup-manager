@@ -256,7 +256,7 @@ export default class PopupManager extends Map<
 
   async hide(instance?: Popup | NoCachePopup) {
     const currentInstance =
-      instance ?? this.noCachePopup ?? this.currentPopups.at(-1);
+      instance ?? this.noCachePopup ?? this.currentPopups.at(0);
 
     if (currentInstance) {
       if (isNoCache(currentInstance, this.noCache)) {
