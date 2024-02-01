@@ -1,7 +1,13 @@
-interface Dialog {
+interface Config {
+  laneCount?: number;
+  onlyOne?: boolean;
+  limit?: number;
+}
+
+interface Popup {
   name: string;
   targetLane: number;
-  lane: Dialog[];
+  lane: Popup[];
   index: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
@@ -11,18 +17,11 @@ interface Dialog {
   cancel: () => void;
 }
 
-type OneDialog = Pick<Dialog, 'name' | 'data' | 'onHide' | 'cancel'>;
+type OnePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
 
 interface OnShow {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (data: any, cancel: () => void): Dialog['onHide'] | void;
-}
-
-function isMultiDialogMode(
-  d: DialogManager['currentDialog'],
-  onlyOne: boolean,
-): d is Dialog {
-  return !onlyOne;
+  (data: any, cancel: () => void): Popup['onHide'] | void;
 }
 
 function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
@@ -33,47 +32,46 @@ function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
   };
 }
 
-export default class DialogManager extends Map<
-  Dialog['name'],
+function isOnePopup(d: Popup | OnePopup, onlyOne: boolean): d is OnePopup {
+  return onlyOne;
+}
+
+export default class PopupManager extends Map<
+  Popup['name'],
   {
     onShow: OnShow;
-    onHide: Dialog['onHide'];
+    onHide: Popup['onHide'];
   }
 > {
-  constructor(config?: { laneCount?: number; onlyOne?: boolean }) {
+  constructor(config?: Config) {
     super();
 
-    this.laneCount = config?.laneCount ?? 1;
-
-    this.onlyOne = config?.onlyOne ?? false;
-
-    this.resetLanes();
+    this.reset(config);
   }
 
   private laneCount: number;
 
-  private lanes: Dialog[][] | undefined;
+  private lanes: Popup[][] | undefined;
 
   private onlyOne = false;
 
-  private currentDialog?: Dialog | OneDialog;
+  private limit: number;
 
-  private resetLanes() {
-    this.lanes = Array(this.laneCount).fill([]);
-  }
+  private onePopup: OnePopup;
+  private currentPopups?: Popup[] = [];
 
-  private async next(oneDialog?: OneDialog) {
-    if (!isMultiDialogMode(this.currentDialog, this.onlyOne)) {
-      if (oneDialog) {
-        const nDialog = this.get(oneDialog.name);
+  private async next() {
+    if (isOnePopup(this.onePopup, this.onlyOne)) {
+      const onePopup = this.onePopup;
 
-        if (nDialog) {
-          this.currentDialog = oneDialog;
+      if (onePopup) {
+        const nPopup = this.get(onePopup.name);
 
-          const onHide = nDialog.onShow(oneDialog.data, oneDialog.cancel);
+        if (nPopup) {
+          const onHide = nPopup.onShow(onePopup.data, onePopup.cancel);
 
           if (onHide) {
-            oneDialog.onHide = onHide;
+            onePopup.onHide = onHide;
           }
         }
 
@@ -88,66 +86,68 @@ export default class DialogManager extends Map<
     });
 
     if (currentLane) {
-      const nextDialog = currentLane.shift();
+      const nextPopup = currentLane.shift();
 
-      if (nextDialog) {
-        const currentDialog = this.currentDialog;
+      if (nextPopup) {
+        if (this.currentPopups.length < this.limit) {
+          const { name, data } = nextPopup;
 
-        if (currentDialog) {
-          if (
-            (currentDialog.targetLane <= nextDialog.targetLane &&
-              nextDialog.forceShow) ||
-            (currentDialog.targetLane === nextDialog.targetLane &&
-              currentDialog.index < nextDialog.index)
-          ) {
-            const nDialog = this.get(nextDialog.name);
+          const popup = this.get(name);
 
-            if (nDialog) {
-              if (currentDialog.canResume) {
-                currentDialog.lane.unshift(currentDialog);
-              }
+          if (popup) {
+            this.currentPopups.push(nextPopup);
 
-              const next = () => {
-                this.currentDialog = nextDialog;
-
-                const onHide = nDialog.onShow(
-                  nextDialog.data,
-                  nextDialog.cancel,
-                );
-
-                if (onHide) {
-                  nextDialog.onHide = onHide;
-                }
-              };
-
-              const probe = {
-                called: false,
-              };
-
-              await currentDialog.onHide(callCheckWrapper(next, probe));
-
-              if (!probe.called) {
-                next();
-              }
-            }
-          } else {
-            nextDialog.lane.unshift(nextDialog);
-          }
-        } else {
-          const { name, data } = nextDialog;
-
-          const dialog = this.get(name);
-
-          if (dialog) {
-            this.currentDialog = nextDialog;
-
-            const onHide = dialog.onShow(data, nextDialog.cancel);
+            const onHide = popup.onShow(data, nextPopup.cancel);
 
             if (onHide) {
-              nextDialog.onHide = onHide;
+              nextPopup.onHide = onHide;
             }
           } else {
             this.hide();
+          }
+        } else {
+          const currentPopup = this.currentPopups[0];
+
+          if (currentPopup) {
+            if (
+              (currentPopup.targetLane <= nextPopup.targetLane &&
+                nextPopup.forceShow) ||
+              (currentPopup.targetLane === nextPopup.targetLane &&
+                currentPopup.index < nextPopup.index)
+            ) {
+              const nPopup = this.get(nextPopup.name);
+
+              if (nPopup) {
+                if (currentPopup.canResume) {
+                  currentPopup.lane.unshift(currentPopup);
+                }
+
+                const next = () => {
+                  this.currentPopups.push(nextPopup);
+
+                  const onHide = nPopup.onShow(
+                    nextPopup.data,
+                    nextPopup.cancel,
+                  );
+
+                  if (onHide) {
+                    nextPopup.onHide = onHide;
+                  }
+                };
+
+                const probe = {
+                  called: false,
+                };
+
+                await currentPopup.onHide(callCheckWrapper(next, probe));
+
+                if (!probe.called) {
+                  next();
+                }
+              }
+            } else {
+              nextPopup.lane.unshift(nextPopup);
+            }
           }
         }
       }
@@ -155,13 +155,13 @@ export default class DialogManager extends Map<
   }
 
   set(
-    name: Dialog['name'],
+    name: Popup['name'],
     {
       onShow,
       onHide,
     }: {
       onShow: OnShow;
-      onHide: Dialog['onHide'];
+      onHide: Popup['onHide'];
     },
   ) {
     if (super.has(name)) {
@@ -174,8 +174,8 @@ export default class DialogManager extends Map<
   }
 
   show(
-    name: Dialog['name'],
-    data?: Dialog['data'],
+    name: Popup['name'],
+    data?: Popup['data'],
     config?: {
       targetLane?: number;
       forceShow?: boolean;
@@ -184,24 +184,23 @@ export default class DialogManager extends Map<
       index?: number;
     },
   ) {
-    let targetLane = config?.targetLane;
-    const { forceShow, canResume, unshift, index } = config ?? {};
+    const popup = this.get(name);
 
-    const dialog = this.get(name);
-
-    if (!dialog) {
+    if (!popup) {
       throw new Error(`${name} not registered`);
     }
 
     if (this.onlyOne) {
-      this.next({
+      this.onePopup = {
         name,
         data,
-        onHide: dialog.onHide,
+        onHide: popup.onHide,
         cancel: () => {
           this.hide();
         },
-      });
+      };
+
+      this.next();
 
       return;
     }
@@ -209,6 +208,9 @@ export default class DialogManager extends Map<
     if (!this.lanes) {
       throw new Error('lanes not initialized');
     }
+
+    const { forceShow, canResume, unshift, index } = config ?? {};
+    let targetLane = config?.targetLane;
 
     if (this.lanes.length === 1) {
       targetLane = 0;
@@ -222,7 +224,7 @@ export default class DialogManager extends Map<
       throw new Error('targetLane not found');
     }
 
-    const instance: Dialog = {
+    const instance: Popup = {
       name,
       data,
       targetLane,
@@ -230,17 +232,9 @@ export default class DialogManager extends Map<
       index: index ?? 0,
       forceShow: forceShow ?? false,
       canResume: canResume ?? true,
-      onHide: dialog.onHide,
+      onHide: popup.onHide,
       cancel: () => {
-        if (this.currentDialog === instance) {
-          this.hide();
-        } else {
-          const index = instance.lane.indexOf(instance);
-
-          if (index >= 0) {
-            instance.lane.splice(index, 1);
-          }
-        }
+        this.hide(instance);
       },
     };
 
@@ -257,29 +251,65 @@ export default class DialogManager extends Map<
     return instance.cancel;
   }
 
-  async hide() {
-    const currentDialog = this.currentDialog;
+  async hide(instance?: Popup | OnePopup) {
+    instance = instance ?? this.onePopup ?? this.currentPopups.at(-1);
 
-    if (currentDialog) {
-      this.currentDialog = undefined;
+    if (instance) {
+      if (isOnePopup(instance, this.onlyOne)) {
+        if (this.onePopup === instance) {
+          this.onePopup = undefined;
 
-      const probe = {
-        called: false,
-      };
+          const probe = {
+            called: false,
+          };
 
-      await currentDialog.onHide(callCheckWrapper(() => this.next(), probe));
+          await instance.onHide(callCheckWrapper(() => this.next(), probe));
 
-      if (!probe.called) {
-        this.next();
+          if (!probe.called) {
+            this.next();
+          }
+        }
+      } else {
+        const currentInstance = instance as Popup;
+
+        const index = this.currentPopups.indexOf(currentInstance);
+
+        if (index >= 0) {
+          this.currentPopups.splice(index, 1);
+
+          const probe = {
+            called: false,
+          };
+
+          await currentInstance.onHide(
+            callCheckWrapper(() => this.next(), probe),
+          );
+
+          if (!probe.called) {
+            this.next();
+          }
+        } else {
+          const index = currentInstance.lane.indexOf(instance);
+
+          if (index >= 0) {
+            currentInstance.lane.splice(index, 1);
+          }
+        }
       }
     }
   }
 
-  reset() {
+  reset(config?: Config) {
     this.clear();
 
-    this.resetLanes();
+    this.laneCount = config?.laneCount ?? this.laneCount ?? 1;
+    this.lanes = Array(this.laneCount).fill([]);
 
-    this.currentDialog = undefined;
+    this.onlyOne = config?.onlyOne ?? this.onlyOne ?? false;
+
+    this.onePopup = undefined;
+    this.currentPopups = [];
+
+    this.limit = config?.limit ?? this.limit ?? 1;
   }
 }

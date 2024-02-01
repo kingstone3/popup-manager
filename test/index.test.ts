@@ -1,24 +1,24 @@
 import { describe, test } from '@jest/globals';
 
-import DialogManager from '../dist/index.esm';
+import PopupManager from '../dist/index.esm';
 
-export const dm = new DialogManager();
+export const dm = new PopupManager();
 
-describe('dialog show and hide', () => {
-  dm.set('dialog', {
+describe('popup show and hide', () => {
+  dm.set('popup', {
     onShow() {
-      test('dialog show', () => {
-        console.log('dialog onShow');
+      test('popup show', () => {
+        console.log('popup onShow');
       });
     },
     async onHide() {
-      test('dialog hide', () => {
-        console.log('dialog onHide');
+      test('popup hide', () => {
+        console.log('popup onHide');
       });
     },
   });
 
-  dm.show('dialog');
+  dm.show('popup');
   dm.hide();
 
   dm.reset();

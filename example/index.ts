@@ -1,49 +1,49 @@
-import DialogManager from '../dist/index.esm';
+import PopupManager from '../dist/index.esm';
 
-const dm = new DialogManager();
+const dm = new PopupManager();
 
-dm.set('dialogA', {
+dm.set('popupA', {
   onShow() {
-    console.log('dialogA onShow');
+    console.log('popupA onShow');
   },
   async onHide(next) {
-    console.log('dialogA onHide');
+    console.log('popupA onHide');
 
     next();
   },
 });
 
-dm.set('dialogB', {
+dm.set('popupB', {
   onShow() {
-    console.log('dialogB onShow');
+    console.log('popupB onShow');
 
     dm.hide();
   },
   async onHide(next) {
-    console.log('dialogB onHide');
+    console.log('popupB onHide');
 
     next();
   },
 });
 
-dm.set('dialogC', {
+dm.set('popupC', {
   onShow() {
-    console.log('dialogC onShow');
+    console.log('popupC onShow');
 
     dm.hide();
   },
   async onHide(next) {
-    console.log('dialogC onHide');
+    console.log('popupC onHide');
 
     next();
   },
 });
 
-dm.show('dialogA');
+dm.show('popupA');
 
-dm.show('dialogB');
+dm.show('popupB');
 
-dm.show('dialogC', undefined, {
+dm.show('popupC', undefined, {
   unshift: true,
 });
 

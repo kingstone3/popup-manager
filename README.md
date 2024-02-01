@@ -1,2 +1,2 @@
-# dialog-manager
-A dialog management tool
+# popup-manager
+A popup management tool
