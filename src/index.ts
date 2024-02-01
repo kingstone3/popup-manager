@@ -233,8 +233,8 @@ export default class PopupManager extends Map<
       targetLane,
       lane,
       index: index ?? 0,
-      forceShow: forceShow ?? false,
-      resumable: resumable ?? true,
+      forceShow: forceShow ?? this.limit !== 1,
+      resumable: resumable ?? this.limit === 1,
       onHide: popup.onHide,
       cancel: () => {
         this.hide(instance);
