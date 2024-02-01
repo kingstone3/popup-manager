@@ -1,10 +1,10 @@
 {
-  "name": "dialog-manager",
+  "name": "popup-manager",
   "version": "0.0.1",
-  "description": "A dialog management tool",
+  "description": "A popup management tool",
   "author": "wanglei",
   "keywords": [
-    "dialog-manager"
+    "popup-manager"
   ],
   "license": "MIT",
   "type": "module",
@@ -22,11 +22,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kingstone3/dialog-manager.git"
+    "url": "git+https://github.com/kingstone3/popup-manager.git"
   },
-  "homepage": "https://github.com/kingstone3/dialog-manager#readme",
+  "homepage": "https://github.com/kingstone3/popup-manager#readme",
   "bugs": {
-    "url": "https://github.com/kingstone3/dialog-manager/issues"
+    "url": "https://github.com/kingstone3/popup-manager/issues"
   },
   "devDependencies": {
     "@babel/core": "^7.23.9",

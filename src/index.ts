@@ -4,10 +4,10 @@ interface Config {
   limit?: number;
 }
 
-interface Dialog {
+interface Popup {
   name: string;
   targetLane: number;
-  lane: Dialog[];
+  lane: Popup[];
   index: number;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data?: any;
@@ -17,11 +17,11 @@ interface Dialog {
   cancel: () => void;
 }
 
-type OneDialog = Pick<Dialog, 'name' | 'data' | 'onHide' | 'cancel'>;
+type OnePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
 
 interface OnShow {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (data: any, cancel: () => void): Dialog['onHide'] | void;
+  (data: any, cancel: () => void): Popup['onHide'] | void;
 }
 
 function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
@@ -32,15 +32,15 @@ function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
   };
 }
 
-function isOneDialog(d: Dialog | OneDialog, onlyOne: boolean): d is OneDialog {
+function isOnePopup(d: Popup | OnePopup, onlyOne: boolean): d is OnePopup {
   return onlyOne;
 }
 
-export default class DialogManager extends Map<
-  Dialog['name'],
+export default class PopupManager extends Map<
+  Popup['name'],
   {
     onShow: OnShow;
-    onHide: Dialog['onHide'];
+    onHide: Popup['onHide'];
   }
 > {
   constructor(config?: Config) {
@@ -51,27 +51,27 @@ export default class DialogManager extends Map<
 
   private laneCount: number;
 
-  private lanes: Dialog[][] | undefined;
+  private lanes: Popup[][] | undefined;
 
   private onlyOne = false;
 
   private limit: number;
 
-  private oneDialog: OneDialog;
-  private currentDialogs?: Dialog[] = [];
+  private onePopup: OnePopup;
+  private currentPopups?: Popup[] = [];
 
   private async next() {
-    if (currentDialogsIsOnlyOne(this.currentDialogs, this.onlyOne)) {
-      if (oneDialog) {
-        const nDialog = this.get(oneDialog.name);
+    if (isOnePopup(this.onePopup, this.onlyOne)) {
+      const onePopup = this.onePopup;
 
-        if (nDialog) {
-          this.currentDialogs = oneDialog;
+      if (onePopup) {
+        const nPopup = this.get(onePopup.name);
 
-          const onHide = nDialog.onShow(oneDialog.data, oneDialog.cancel);
+        if (nPopup) {
+          const onHide = nPopup.onShow(onePopup.data, onePopup.cancel);
 
           if (onHide) {
-            oneDialog.onHide = onHide;
+            onePopup.onHide = onHide;
           }
         }
 
@@ -86,66 +86,68 @@ export default class DialogManager extends Map<
     });
 
     if (currentLane) {
-      const nextDialog = currentLane.shift();
+      const nextPopup = currentLane.shift();
 
-      if (nextDialog) {
-        const currentDialog = this.currentDialog;
+      if (nextPopup) {
+        if (this.currentPopups.length < this.limit) {
+          const { name, data } = nextPopup;
 
-        if (currentDialog) {
-          if (
-            (currentDialog.targetLane <= nextDialog.targetLane &&
-              nextDialog.forceShow) ||
-            (currentDialog.targetLane === nextDialog.targetLane &&
-              currentDialog.index < nextDialog.index)
-          ) {
-            const nDialog = this.get(nextDialog.name);
+          const popup = this.get(name);
 
-            if (nDialog) {
-              if (currentDialog.canResume) {
-                currentDialog.lane.unshift(currentDialog);
-              }
+          if (popup) {
+            this.currentPopups.push(nextPopup);
 
-              const next = () => {
-                this.currentDialog = nextDialog;
-
-                const onHide = nDialog.onShow(
-                  nextDialog.data,
-                  nextDialog.cancel,
-                );
-
-                if (onHide) {
-                  nextDialog.onHide = onHide;
-                }
-              };
-
-              const probe = {
-                called: false,
-              };
-
-              await currentDialog.onHide(callCheckWrapper(next, probe));
-
-              if (!probe.called) {
-                next();
-              }
-            }
-          } else {
-            nextDialog.lane.unshift(nextDialog);
-          }
-        } else {
-          const { name, data } = nextDialog;
-
-          const dialog = this.get(name);
-
-          if (dialog) {
-            this.currentDialog = nextDialog;
-
-            const onHide = dialog.onShow(data, nextDialog.cancel);
+            const onHide = popup.onShow(data, nextPopup.cancel);
 
             if (onHide) {
-              nextDialog.onHide = onHide;
+              nextPopup.onHide = onHide;
             }
           } else {
             this.hide();
+          }
+        } else {
+          const currentPopup = this.currentPopups[0];
+
+          if (currentPopup) {
+            if (
+              (currentPopup.targetLane <= nextPopup.targetLane &&
+                nextPopup.forceShow) ||
+              (currentPopup.targetLane === nextPopup.targetLane &&
+                currentPopup.index < nextPopup.index)
+            ) {
+              const nPopup = this.get(nextPopup.name);
+
+              if (nPopup) {
+                if (currentPopup.canResume) {
+                  currentPopup.lane.unshift(currentPopup);
+                }
+
+                const next = () => {
+                  this.currentPopups.push(nextPopup);
+
+                  const onHide = nPopup.onShow(
+                    nextPopup.data,
+                    nextPopup.cancel,
+                  );
+
+                  if (onHide) {
+                    nextPopup.onHide = onHide;
+                  }
+                };
+
+                const probe = {
+                  called: false,
+                };
+
+                await currentPopup.onHide(callCheckWrapper(next, probe));
+
+                if (!probe.called) {
+                  next();
+                }
+              }
+            } else {
+              nextPopup.lane.unshift(nextPopup);
+            }
           }
         }
       }
@@ -153,13 +155,13 @@ export default class DialogManager extends Map<
   }
 
   set(
-    name: Dialog['name'],
+    name: Popup['name'],
     {
       onShow,
       onHide,
     }: {
       onShow: OnShow;
-      onHide: Dialog['onHide'];
+      onHide: Popup['onHide'];
     },
   ) {
     if (super.has(name)) {
@@ -172,8 +174,8 @@ export default class DialogManager extends Map<
   }
 
   show(
-    name: Dialog['name'],
-    data?: Dialog['data'],
+    name: Popup['name'],
+    data?: Popup['data'],
     config?: {
       targetLane?: number;
       forceShow?: boolean;
@@ -182,17 +184,17 @@ export default class DialogManager extends Map<
       index?: number;
     },
   ) {
-    const dialog = this.get(name);
+    const popup = this.get(name);
 
-    if (!dialog) {
+    if (!popup) {
       throw new Error(`${name} not registered`);
     }
 
     if (this.onlyOne) {
-      this.oneDialog = {
+      this.onePopup = {
         name,
         data,
-        onHide: dialog.onHide,
+        onHide: popup.onHide,
         cancel: () => {
           this.hide();
         },
@@ -222,7 +224,7 @@ export default class DialogManager extends Map<
       throw new Error('targetLane not found');
     }
 
-    const instance: Dialog = {
+    const instance: Popup = {
       name,
       data,
       targetLane,
@@ -230,7 +232,7 @@ export default class DialogManager extends Map<
       index: index ?? 0,
       forceShow: forceShow ?? false,
       canResume: canResume ?? true,
-      onHide: dialog.onHide,
+      onHide: popup.onHide,
       cancel: () => {
         this.hide(instance);
       },
@@ -249,13 +251,13 @@ export default class DialogManager extends Map<
     return instance.cancel;
   }
 
-  async hide(instance?: Dialog | OneDialog) {
-    instance = instance ?? this.oneDialog ?? this.currentDialogs.shift();
+  async hide(instance?: Popup | OnePopup) {
+    instance = instance ?? this.onePopup ?? this.currentPopups.at(-1);
 
     if (instance) {
-      if (isOneDialog(instance, this.onlyOne)) {
-        if (this.oneDialog === instance) {
-          this.oneDialog = undefined;
+      if (isOnePopup(instance, this.onlyOne)) {
+        if (this.onePopup === instance) {
+          this.onePopup = undefined;
 
           const probe = {
             called: false,
@@ -268,12 +270,12 @@ export default class DialogManager extends Map<
           }
         }
       } else {
-        const currentInstance = instance as Dialog;
+        const currentInstance = instance as Popup;
 
-        const index = this.currentDialogs.indexOf(currentInstance);
+        const index = this.currentPopups.indexOf(currentInstance);
 
         if (index >= 0) {
-          this.currentDialogs.splice(index, 1);
+          this.currentPopups.splice(index, 1);
 
           const probe = {
             called: false,
@@ -305,8 +307,8 @@ export default class DialogManager extends Map<
 
     this.onlyOne = config?.onlyOne ?? this.onlyOne ?? false;
 
-    this.oneDialog = undefined;
-    this.currentDialogs = [];
+    this.onePopup = undefined;
+    this.currentPopups = [];
 
     this.limit = config?.limit ?? this.limit ?? 1;
   }
