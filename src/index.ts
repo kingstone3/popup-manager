@@ -1,10 +1,12 @@
+import { callCheckWrapper, isNoCache } from './utils';
+
 interface Config {
   laneCount?: number;
   noCache?: boolean;
   limit?: number;
 }
 
-interface Popup {
+export interface Popup {
   name: string;
   targetLane: number;
   lane: Popup[];
@@ -17,26 +19,11 @@ interface Popup {
   cancel: () => void;
 }
 
-type NoCachePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
+export type NoCachePopup = Pick<Popup, 'name' | 'data' | 'onHide' | 'cancel'>;
 
 interface OnShow {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (data: any, cancel: () => void): Popup['onHide'] | void;
-}
-
-function callCheckWrapper(fn: () => void, probe: { called: boolean }) {
-  return () => {
-    fn();
-
-    probe.called = true;
-  };
-}
-
-function isNoCache(
-  d: Popup | NoCachePopup,
-  noCache: boolean,
-): d is NoCachePopup {
-  return noCache;
 }
 
 export default class PopupManager extends Map<
