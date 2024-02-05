@@ -1,7 +1,11 @@
+import process from 'process';
+
 import eslint from '@rollup/plugin-eslint';
 import terser from '@rollup/plugin-terser';
 import esbuild from 'rollup-plugin-esbuild';
 import { dts } from 'rollup-plugin-dts';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 export default [
   {
@@ -18,7 +22,7 @@ export default [
         sourcemap: true,
       },
     ],
-    plugins: [esbuild(), eslint(), terser()],
+    plugins: [esbuild(), eslint(), !isDev ? terser() : undefined],
   },
   {
     input: './src/index.ts',
@@ -27,13 +31,5 @@ export default [
       file: 'dist/index.d.ts',
     },
     plugins: [dts()],
-  },
-  {
-    input: './example/index.ts',
-    output: {
-      format: 'esm',
-      file: 'example/index.esm.js',
-    },
-    plugins: [esbuild(), eslint()],
   },
 ];
